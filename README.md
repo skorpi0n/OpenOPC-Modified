@@ -6,14 +6,26 @@ A modified version of the original OpenOPC by Barry Barnreiter (https://openopc.
 ## Flushing
 Previously, the opc.py never flushed manually, causing it to only flush when reaching a treshold of 4kb when running in a subprocess (not from commandline)
 
-To solve this, I added this code after the for-loop:
+To solve this, I replaced the following row
+```
+write = sys.stdout.write
+```
+With this
+```
+def write(s):
+    sys.stdout.write(s)
+```
+I also added this code after the for-loop:
 ```
 sys.stdout.flush()
 ```
 
-This row can be put after this row to make it flush after every row instead
+
+If it is preferred to flush after each row instead, this row can be put after "sys.stdout.write(s)" like this:
 ```
-sys.stdout.write(s)
+def write(s):
+    sys.stdout.write(s)
+    sys.stdout.flush()
 ```
 
 ## Exit codes
