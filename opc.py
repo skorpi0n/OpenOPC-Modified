@@ -9,12 +9,10 @@
 #
 ###########################################################################
 
-from sys import *
-from getopt import *
-from os import *
 import signal
 import sys
 import os
+import getopt
 import types
 import datetime
 import re, time, csv
@@ -28,8 +26,6 @@ else:
     pyro_found = True
 
 # Common function aliases
-
-#write = sys.stdout.write
 
 def write(s):
     sys.stdout.write(s)
@@ -67,14 +63,14 @@ repeat_pause = None
 property_ids = None
 include_err_msg = False
 
-if environ.has_key('OPC_MODE'):            opc_mode = environ['OPC_MODE']
-if environ.has_key('OPC_CLASS'):          opc_class = environ['OPC_CLASS']
-if environ.has_key('OPC_CLIENT'):         client_name = environ['OPC_CLIENT']
-if environ.has_key('OPC_HOST'):            opc_host = environ['OPC_HOST']
-if environ.has_key('OPC_SERVER'):         opc_server = environ['OPC_SERVER']
-if environ.has_key('OPC_GATE_HOST'):     open_host = environ['OPC_GATE_HOST']
-if environ.has_key('OPC_GATE_PORT'):     open_port = environ['OPC_GATE_PORT']
-if environ.has_key('OPC_TIMEOUT'):        timeout = int(environ['OPC_TIMEOUT'])
+if os.environ.has_key('OPC_MODE'):            opc_mode = os.environ['OPC_MODE']
+if os.environ.has_key('OPC_CLASS'):          opc_class = os.environ['OPC_CLASS']
+if os.environ.has_key('OPC_CLIENT'):         client_name = os.environ['OPC_CLIENT']
+if os.environ.has_key('OPC_HOST'):            opc_host = os.environ['OPC_HOST']
+if os.environ.has_key('OPC_SERVER'):         opc_server = os.environ['OPC_SERVER']
+if os.environ.has_key('OPC_GATE_HOST'):     open_host = os.environ['OPC_GATE_HOST']
+if os.environ.has_key('OPC_GATE_PORT'):     open_port = os.environ['OPC_GATE_PORT']
+if os.environ.has_key('OPC_TIMEOUT'):        timeout = int(os.environ['OPC_TIMEOUT'])
 
 # FUNCTION: Print comand line usage summary
 
@@ -119,6 +115,11 @@ def usage():
     print '  -e,        --errors             Include descriptive error message strings'
     print '  -R,        --recursive         List items recursively when browsing tree'
     print '  -,         --pipe                Pipe item/value list from standard input'
+
+# Helper to be able to gracefully terminate the process when running as CLI and in SUBPROCESS mode
+shutdown_file = "opc.py.stop.flag"
+if os.path.exists(shutdown_file):
+    os.remove(shutdown_file)
 
 # Helper class for handling signals (i.e. Ctrl-C)
 
@@ -268,15 +269,15 @@ def time2str(t):
 
 # Parse command line arguments
 
-if argv.count('-') > 0:
-    argv[argv.index('-')] = '--pipe'
+if sys.argv.count('-') > 0:
+    sys.argv[sys.argv.index('-')] = '--pipe'
     pipe = True
 
 try:
-    opts, args = gnu_getopt(argv[1:], 'rwlpfiqRSevx:m:C:H:P:c:h:s:L:F:z:o:a:u:t:g:y:n:', ['read','write','list','properties','flat','info','mode=','gate-host=','gate-port=','class=','host=','server=','output=','pause=','pipe','servers','sessions','repeat=','function=','append=','update=','timeout=','size=','source=','id=','verbose','recursive','rotate=','errors','name='])
-except GetoptError:
+    opts, args = getopt.gnu_getopt(sys.argv[1:], 'rwlpfiqRSevx:m:C:H:P:c:h:s:L:F:z:o:a:u:t:g:y:n:', ['read','write','list','properties','flat','info','mode=','gate-host=','gate-port=','class=','host=','server=','output=','pause=','pipe','servers','sessions','repeat=','function=','append=','update=','timeout=','size=','source=','id=','verbose','recursive','rotate=','errors','name='])
+except getopt.GetoptError:
     usage()
-    exit(1)    
+    sys.exit(1)    
 
 for o, a in opts:
     if o in ['-m', '--mode']         : opc_mode = a
@@ -316,41 +317,41 @@ for o, a in opts:
 
 if num_columns > 0 and style in ('values', 'pairs'):
     print "'%s' style format may not be used with rotate" % style
-    exit(1)
+    sys.exit(1)
     
 if opc_mode not in ('open', 'dcom'):
     print "'%s' is not a valid protocol mode (options: dcom, open)" % opc_mode
-    exit(1)
+    sys.exit(1)
 
 if opc_mode == 'dcom' and not OpenOPC.win32com_found:
     print "win32com modules required when using DCOM protocol mode (http://pywin32.sourceforge.net/)"
-    exit(1)
+    sys.exit(1)
 
 if opc_mode == 'open' and not pyro_found:
     print "Pyro module required when using Open protocol mode (http://pyro.sourceforge.net)"
-    exit(1)
+    sys.exit(1)
 
 if style not in ('table', 'values', 'pairs', 'csv', 'html'):
     print "'%s' is not a valid style format (options: table, values, pairs, csv, html)" % style
-    exit(1)
+    sys.exit(1)
 
 if read_function not in ('sync', 'async'):
     print "'%s' is not a valid read function (options: sync, async)" % read_function
-    exit(1)
+    sys.exit(1)
 else:
     sync = (read_function == 'sync')
     
 if data_source not in ('cache', 'device', 'hybrid'):
     print "'%s' is not a valid data source mode (options: cache, device, hybrid)" % data_source
-    exit(1)
+    sys.exit(1)
 
-if len(argv[1:]) == 0 or argv[1] == '/?' or argv[1] == '--help':
+if len(sys.argv[1:]) == 0 or sys.argv[1] == '/?' or sys.argv[1] == '--help':
     usage()
-    exit(1)
+    sys.exit(1)
 
 if opc_server == '' and action not in ('servers', 'sessions'):
     print 'OPC server name missing: use -s option or set OPC_SERVER environment variable'
-    exit(1)
+    sys.exit(1)
 
 if data_source in ('cache', 'hybrid') and read_function == 'async' and update_rate == None and repeat_pause != None:
     update_rate = int(repeat_pause * 1000.0)
@@ -367,19 +368,19 @@ if pipe:
         reader = csv.reader(sys.stdin)
         tags_nested = list(reader)
     except KeyboardInterrupt:
-        exit(1)
+        sys.exit(1)
 
     tags = [line[0] for line in tags_nested if len(line) > 0]
     if len(tags) == 0:
         print 'Input stream must contain ITEMs (one per line)'
-        exit(1)
+        sys.exit(1)
         
     if action == 'write':
         try:
             tag_value_pairs = [(item[0], item[1]) for item in tags_nested]
         except IndexError:
             print 'Write input must be in ITEM,VALUE (CSV) format'
-            exit(1)
+            sys.exit(1)
 
 # Tag list passed via command line arguments
 else:
@@ -394,7 +395,7 @@ else:
             tag_value_pairs = [t.split('=') for t in tags]
         else:
             print 'Write arguments must be supplied in ITEM=VALUE or ITEM VALUE format'
-            exit(1)
+            sys.exit(1)
 
 if len(append) > 0:
     tags = [t + a  for t in tags for a in append.split(',')]
@@ -404,11 +405,11 @@ if property_ids != None:
         property_ids = [int(p) for p in property_ids.split(',')]
     except ValueError:
         print 'Property ids must be numeric'
-        exit(1)
+        sys.exit(1)
     
 if action in ('read','write') and not pipe and len(tags) == 0:
     usage()
-    exit(1)
+    sys.exit(1)
 
 # Were only health monitoring "@" tags supplied?
 
@@ -425,7 +426,8 @@ sh = SigHandler()
 signal.signal(signal.SIGINT,sh)
 if os.name == 'nt':
      signal.signal(signal.SIGBREAK,sh)
-signal.signal(signal.SIGTERM,sh)
+if hasattr(signal, "SIGTERM"):
+    signal.signal(signal.SIGTERM,sh)
 
 # ACTION: List active sessions in OpenOPC service
 
@@ -437,8 +439,8 @@ if action == 'sessions':
     except:
         error_msg = sys.exc_info()[1]
         print "Cannot connect to OpenOPC service at %s:%s - %s" % (open_host, open_port, error_msg)
-        exit(1)
-    #exit()
+        sys.exit(1)
+    #sys.exit()
     
 # Connect to OpenOPC service (Open mode)
 
@@ -448,7 +450,7 @@ if opc_mode == 'open':
     except:
         error_msg = sys.exc_info()[1]
         print "Cannot connect to OpenOPC Gateway Service at %s:%s - %s" % (open_host, open_port, error_msg)
-        exit(1)
+        sys.exit(1)
 
 # Dispatch to COM class (DCOM mode)
 
@@ -457,7 +459,7 @@ else:
         opc = OpenOPC.client(opc_class, client_name)
     except OpenOPC.OPCError, error_msg:
         print "Failed to initialize an OPC Automation Class from the search list '%s' - %s" % (opc_class, error_msg)
-        exit(1)
+        sys.exit(1)
 
 # Connect to OPC server
 
@@ -467,7 +469,7 @@ if action not in ['servers'] and not health_only:
     except OpenOPC.OPCError, error_msg:
         if opc_mode == 'open': error_msg = error_msg[0]
         print "Connect to OPC server '%s' on '%s' failed - %s" % (opc_server, opc_host, error_msg)
-        exit(1)
+        sys.exit(1)
 
 # Perform requested action...
 
@@ -490,71 +492,101 @@ if action == 'read':
     total_count = 0
     com_connected = True
     pyro_connected = True
+    failure_count = 0
 
+    # Implementing retry-backoff with a while loop that runs every second but skips the opc.read if while_counter not at repeat_pause_n
+    repeat_pause_n = repeat_pause
+    while_counter = 0
     while not sh.signaled:
-
-        try:
-            if not pyro_connected:
-                opc = OpenOPC.open_client(open_host, open_port)
-                opc.connect(opc_server, opc_host)
-                opc_read = opc.read
-                pyro_connected = True
-                com_connected = True
-
-            if not com_connected:
-                opc.connect(opc_server, opc_host)
-                com_connected = True
-
-            status = output(rotate(opc_read(tags,
-                                             group='test',
-                                             size=group_size,
-                                             pause=tx_pause,
-                                             source=data_source,
-                                             update=update_rate,
-                                             timeout=timeout,
-                                             sync=sync,
-                                             include_error=include_err_msg),
-                                num_columns), style)
-                                
-        except OpenOPC.TimeoutError, error_msg:
-            if opc_mode == 'open': error_msg = error_msg[0]
-            print error_msg
-            success = False
-
-        except OpenOPC.OPCError, error_msg:
-            if opc_mode == 'open': error_msg = error_msg[0]
-            print error_msg
-            success = False
- 
-            if opc.ping():
-                com_connected = True
-            else:
-                com_connected = False
-                
-        except (Pyro.errors.ConnectionClosedError, Pyro.errors.ProtocolError), error_msg:
-            print 'Gateway Service: %s' % error_msg
-            success = False
-            pyro_connected = False
-
-        except TypeError, error_msg:
-            if opc_mode == 'open': error_msg = error_msg[0]
-            print error_msg
+        # Check if stop-flag-file exists, then break if true
+        if os.path.exists(shutdown_file):
+            os.remove(shutdown_file)
             break
 
-        except IOError:
-            opc.close()
-            exit(1)
-                
-        else:
-            success = True
+        # Check if its time to read from the opc-server
+        if while_counter > repeat_pause_n:
+            while_counter = 0   #Reset the counter once we have reached the repeat_pause_n threshold
+            try:
+                if not pyro_connected:
+                    opc = OpenOPC.open_client(open_host, open_port)
+                    opc.connect(opc_server, opc_host)
+                    opc_read = opc.read
+                    pyro_connected = True
+                    com_connected = True
 
-        if success and num_columns == 0:
-            success_count += len([s for s in status if s[2] != 'Error'])
-            total_count += len(status)
+                if not com_connected:
+                    opc.connect(opc_server, opc_host)
+                    com_connected = True
+
+                status = output(rotate(opc_read(tags,
+                                                 group='test',
+                                                 size=group_size,
+                                                 pause=tx_pause,
+                                                 source=data_source,
+                                                 update=update_rate,
+                                                 timeout=timeout,
+                                                 sync=sync,
+                                                 include_error=include_err_msg),
+                                    num_columns), style)
+                                    
+            except OpenOPC.TimeoutError, error_msg:
+                if opc_mode == 'open': error_msg = error_msg[0]
+                print '%s (%d)' % (error_msg, failure_count + 1)
+                success = False
+
+            except OpenOPC.OPCError, error_msg:
+                if opc_mode == 'open': error_msg = error_msg[0]
+                print '%s (%d)' % (error_msg, failure_count + 1)
+                success = False
+     
+                if opc.ping():
+                    com_connected = True
+                else:
+                    com_connected = False
+                    
+            except (Pyro.errors.ConnectionClosedError, Pyro.errors.ProtocolError), error_msg:
+                #print 'Gateway Service: %s' % error_msg
+                print 'Gateway Service: %s (%d)' % (error_msg, failure_count + 1)
+                success = False
+                pyro_connected = False
+
+            except TypeError, error_msg:
+                if opc_mode == 'open': error_msg = error_msg[0]
+                print error_msg
+                break
+
+            except IOError:
+                opc.close()
+                sys.exit(1)
+
+            else:
+                success = True
+
+            #Flush any error_msg printed to stdout
+            sys.stdout.flush()
+            if success and num_columns == 0:
+                success_count += len([s for s in status if s[2] != 'Error'])
+                total_count += len(status)
+
+            if success:
+                failure_count = 0
+            else:
+                failure_count += 1
+
+            if failure_count == 0:
+                repeat_pause_n = repeat_pause   #reset to previously set value
+            elif failure_count < 5:
+                repeat_pause_n = 10   #10 seconds retry-backoff
+            elif failure_count < 20:
+                repeat_pause_n = 60   #60 seconds retry-backoff
+            else:
+                repeat_pause_n = 300  #5 minutes retry-backoff
 
         if repeat_pause != None:
             try:
-                time.sleep(repeat_pause)
+                #time.sleep(repeat_pause_n)
+                while_counter += 1
+                time.sleep(1)   #Run loop every second, but only read from the OPC-server repeat_pause_n time
             except IOError:
                 break
         else:
